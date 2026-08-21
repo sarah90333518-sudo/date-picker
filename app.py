@@ -162,7 +162,6 @@ with top_col1:
         st.info("등록된 약속이 없습니다.")
 
 with top_col2:
-    # Top Button for Creating New Poll
     btn_text = "❌ 작성 취소" if st.session_state.show_create_form else "➕ 새 약속 만들기"
     btn_type = "secondary" if st.session_state.show_create_form else "primary"
     
@@ -256,17 +255,16 @@ if st.session_state.show_create_form:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ---------------- MAIN CONTENT: 2 FOCUSED TABS ----------------
+# ---------------- MAIN CONTENT: FOCUSED TABS & MANAGEMENTS ----------------
 active_poll = st.session_state.polls.get(st.session_state.active_poll_id)
 
 if not active_poll:
     st.info("상단의 **[➕ 새 약속 만들기]** 버튼을 눌러 첫 번째 약속 투표를 생성해 보세요!")
 else:
-    tab_vote, tab_results = st.tabs(["🙋‍♂️ 일정 투표하기", "👑 종합 현황 & 1위 날짜"])
+    tab_vote, tab_results, tab_manage = st.tabs(["🙋‍♂️ 일정 투표하기", "👑 종합 현황 & 1위 날짜", "⚙️ 약속 수정/삭제"])
 
     # --- TAB 1: VOTE FORM ---
     with tab_vote:
-        # Active Poll Banner
         st.markdown(f"""
         <div class="active-banner">
             <span style="font-size:12px; color:#a5b4fc; font-weight:600;">현재 선택된 약속</span>
@@ -415,3 +413,40 @@ else:
                 share_text += f"{idx+1}위: {s['date']} ({w_kr}) - {s['avail']}명 가능 (참석: {', '.join(s['avail_names']) if s['avail_names'] else '없음'})\n"
 
             st.code(share_text, language="markdown")
+
+    # --- TAB 3: MANAGE POLL (EDIT NAME & DELETE) ---
+    with tab_manage:
+        st.subheader("⚙️ 현재 약속 수정 및 삭제")
+        st.caption("약속 이름이나 메모를 수정하거나, 필요 없어진 약속을 삭제할 수 있습니다.")
+
+        with st.form("edit_poll_form"):
+            new_title = st.text_input("약속 이름 변경", value=active_poll["title"])
+            new_desc = st.text_input("메모/장소 변경", value=active_poll.get("desc", ""))
+            
+            save_edit = st.form_submit_button("✏️ 약속 정보 수정 저장", use_container_width=True)
+            if save_edit:
+                if not new_title.strip():
+                    st.error("약속 이름을 비워둘 수 없습니다.")
+                else:
+                    active_poll["title"] = new_title.strip()
+                    active_poll["desc"] = new_desc.strip()
+                    save_polls_to_file(st.session_state.polls)
+                    st.session_state.flash_message = f"✏️ 약속 이름이 '{new_title.strip()}'(으)로 수정되었습니다!"
+                    st.rerun()
+
+        st.divider()
+
+        st.markdown("#### 🗑️ 약속 삭제하기")
+        st.warning("주의: 약속을 삭제하면 모든 참가자의 투표 기록이 영구히 삭제됩니다.")
+        
+        confirm_del = st.checkbox(f"네, '{active_poll['title']}' 약속을 삭제하겠습니다.")
+        if st.button("🗑️ 약속 삭제 실행", use_container_width=True, type="primary", disabled=not confirm_del):
+            del_title = active_poll['title']
+            del st.session_state.polls[st.session_state.active_poll_id]
+            save_polls_to_file(st.session_state.polls)
+            
+            # Switch active poll
+            remaining_ids = list(st.session_state.polls.keys())
+            st.session_state.active_poll_id = remaining_ids[0] if remaining_ids else None
+            st.session_state.flash_message = f"🗑️ '{del_title}' 약속이 정상적으로 삭제되었습니다."
+            st.rerun()
