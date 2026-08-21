@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>모여봐요 약속의 숲 - 친구들과 약속 날짜 잡기</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        },
+                        accent: {
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0f172a 60%, #090d16 100%);
+            min-height: 100vh;
+            color: #f8fafc;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-card-sm {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.5);
+            border-radius: 9999px;
+        }
+        .status-btn-available {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.4));
+            border: 2px solid #10b981;
+            color: #34d399;
+        }
+        .status-btn-maybe {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.4));
+            border: 2px solid #f59e0b;
+            color: #fbbf24;
+        }
+        .status-btn-unavailable {
+            background: linear-gradient(135deg, rgba(244, 63, 94, 0.2), rgba(244, 63, 94, 0.4));
+            border: 2px solid #f43f5e;
+            color: #fb7185;
+        }
+        .calendar-day-selected {
+            background: #4f46e5 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.6);
+        }
+    </style>
+</head>
+<body class="font-sans antialiased pb-20">
+
+    <!-- Header / Navbar -->
+    <header class="sticky top-0 z-50 glass-card border-b border-white/10 px-4 py-3 mb-6">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="app.showHome()">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <i data-lucide="calendar-heart" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-indigo-400">모여봐요 약속의 숲</h1>
+                    <p class="text-xs text-indigo-300/70">친구들과 빠르게 약속 날짜 정하기</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="app.loadSampleData()" class="px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 text-xs font-medium text-indigo-200 transition flex items-center gap-1.5">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span>샘플 모임 불러오기</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4">
+
+        <!-- VIEW 1: HOME & CREATE POLL -->
+        <section id="view-create" class="space-y-6">
+            <!-- Hero Banner -->
+            <div class="glass-card rounded-2xl p-6 md:p-8 relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="relative z-10 max-w-2xl">
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 inline-flex items-center gap-1 mb-3">
+                        <i data-lucide="party-popper" class="w-3.5 h-3.5"></i> 간편 날짜 투표 플랫폼
+                    </span>
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-2 leading-snug">"언제 만날까?" 더 이상 카톡에서 헤매지 마세요!</h2>
+                    <p class="text-slate-300 text-sm md:text-base leading-relaxed">
+                        모임 이름과 후보 날짜를 지정하면 끝! 각자 가능한 날짜를 찍으면 **가장 많은 사람이 참석할 수 있는 최적의 날짜**를 자동으로 계산해 줍니다.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Create Poll Form -->
+            <div class="glass-card rounded-2xl p-6 md:p-8 space-y-6">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i> 새 약속 투표 만들기
+                </h3>
+
+                <!-- Input Title -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">약속 이름 <span class="text-indigo-400">*</span></label>
+                    <input type="text" id="poll-title" placeholder="예: 8월 고교 동창 여름 정모 🍻, 강원도 여행 🚗" 
+                        class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                </div>
+
+                <!-- Input Description -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">메모/장소 (선택)</label>
+                    <input type="text" id="poll-desc" placeholder="예: 강남역 부근 / 오후 6시 이후 모임" 
+                        class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+                </div>
+
+                <!-- Date Picker Section -->
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-sm font-medium text-slate-300">후보 날짜 선택 <span class="text-indigo-400">*</span></label>
+                        <span class="text-xs text-indigo-300 bg-indigo-950/80 px-2.5 py-1 rounded-md border border-indigo-800/50">
+                            선택된 날짜: <strong id="selected-dates-count" class="text-white">0</strong>개
+                        </span>
+                    </div>
+
+                    <!-- Calendar Controls -->
+                    <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800">
+                        <div class="flex items-center justify-between mb-4">
+                            <button onclick="app.prevMonth()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                            </button>
+                            <span id="calendar-month-year" class="font-bold text-white text-base"></span>
+                            <button onclick="app.nextMonth()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <!-- Calendar Grid -->
+                        <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400 mb-2">
+                            <div class="text-rose-400">일</div>
+                            <div>월</div>
+                            <div>화</div>
+                            <div>수</div>
+                            <div>목</div>
+                            <div>금</div>
+                            <div class="text-indigo-400">토</div>
+                        </div>
+                        <div id="calendar-days" class="grid grid-cols-7 gap-1.5">
+                            <!-- JS Generated -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Create Button -->
+                <button onclick="app.createPoll()" class="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 hover:from-indigo-600 hover:to-purple-700 font-bold text-white shadow-lg shadow-indigo-500/25 transition duration-200 transform active:scale-[0.99] flex items-center justify-center gap-2">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    <span>약속 투표 생성하기</span>
+                </button>
+            </div>
+
+            <!-- Existing Polls List -->
+            <div id="existing-polls-container" class="hidden space-y-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="folder-heart" class="w-5 h-5 text-indigo-400"></i> 내가 만든 / 참여 중인 약속 목록
+                </h3>
+                <div id="existing-polls-list" class="grid gap-3 md:grid-cols-2">
+                    <!-- JS Generated -->
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 2: POLL DETAILS & VOTE & RESULTS -->
+        <section id="view-poll" class="hidden space-y-6">
+            <!-- Navigation Back -->
+            <div class="flex items-center justify-between">
+                <button onclick="app.showHome()" class="px-3.5 py-2 rounded-xl glass-card hover:bg-slate-800 text-slate-300 text-sm font-medium transition flex items-center gap-2">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i> 목록으로 돌아가기
+                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="app.copyShareText()" class="px-3.5 py-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 text-xs font-semibold transition flex items-center gap-1.5">
+                        <i data-lucide="message-square-share" class="w-4 h-4"></i>
+                        <span>카톡 결과 공유 복사</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Poll Header Info -->
+            <div class="glass-card rounded-2xl p-6 relative">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <span id="poll-detail-badge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 inline-block mb-2">
+                            약속 투표 진행 중
+                        </span>
+                        <h2 id="poll-detail-title" class="text-2xl font-bold text-white"></h2>
+                        <p id="poll-detail-desc" class="text-slate-400 text-sm mt-1"></p>
+                    </div>
+                    <div class="flex items-center gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                        <div class="text-center px-2">
+                            <span class="block text-xs text-slate-400">참여자</span>
+                            <strong id="poll-detail-voter-count" class="text-lg text-indigo-400">0명</strong>
+                        </div>
+                        <div class="h-8 w-[1px] bg-slate-700"></div>
+                        <div class="text-center px-2">
+                            <span class="block text-xs text-slate-400">후보 날짜</span>
+                            <strong id="poll-detail-date-count" class="text-lg text-white">0개</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs: [투표하기] vs [결과 보기 & 분석] -->
+            <div class="flex bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
+                <button id="tab-btn-vote" onclick="app.switchTab('vote')" class="flex-1 py-2.5 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2 bg-indigo-600 text-white shadow">
+                    <i data-lucide="check-square" class="w-4 h-4"></i> 내 일정 투표하기
+                </button>
+                <button id="tab-btn-result" onclick="app.switchTab('result')" class="flex-1 py-2.5 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2 text-slate-400 hover:text-white">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i> 종합 현황 & 최적 날짜 👑
+                </button>
+            </div>
+
+            <!-- TAB CONTENT 1: VOTE FORM -->
+            <div id="tab-content-vote" class="glass-card rounded-2xl p-6 md:p-8 space-y-6">
+                <div class="border-b border-slate-800 pb-4">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2 mb-3">
+                        <i data-lucide="user-check" class="w-5 h-5 text-indigo-400"></i> 누가 투표하시나요?
+                    </h3>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <input type="text" id="voter-name" placeholder="이름을 입력하세요 (예: 민수, 지은)" 
+                            class="flex-1 bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                        <select id="voter-selector" onchange="app.onVoterSelectChange()" class="bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-300 focus:outline-none">
+                            <option value="">+ 새 참가자로 투표하기</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Date Voting Grid -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-sm font-semibold text-slate-300">날짜별 가능 여부 선택</h4>
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="flex items-center gap-1 text-emerald-400"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>가능</span>
+                            <span class="flex items-center gap-1 text-amber-400"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>세모</span>
+                            <span class="flex items-center gap-1 text-rose-400"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>불가</span>
+                        </div>
+                    </div>
+
+                    <div id="vote-dates-list" class="grid gap-3 sm:grid-cols-2">
+                        <!-- JS Generated Vote Cards -->
+                    </div>
+                </div>
+
+                <!-- Save Vote Button -->
+                <button onclick="app.submitVote()" class="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white shadow-lg transition flex items-center justify-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    <span>투표 결과 저장하기</span>
+                </button>
+            </div>
+
+            <!-- TAB CONTENT 2: RESULTS & ANALYTICS -->
+            <div id="tab-content-result" class="hidden space-y-6">
+                <!-- Best Date Winner Crown Banner -->
+                <div id="best-date-banner" class="glass-card rounded-2xl p-6 border-2 border-amber-500/50 bg-gradient-to-r from-amber-950/40 via-indigo-950/40 to-slate-900 relative overflow-hidden">
+                    <!-- JS Generated Winner Card -->
+                </div>
+
+                <!-- Participant Matrix Table -->
+                <div class="glass-card rounded-2xl p-6 space-y-4">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="grid" class="w-5 h-5 text-indigo-400"></i> 전체 일정 현황표
+                    </h3>
+
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table id="matrix-table" class="w-full text-left text-sm border-collapse min-w-[500px]">
+                            <!-- JS Generated -->
+                        </table>
+                    </div>
+                </div>
+
+                <!-- KakaoTalk Share Text Box -->
+                <div class="glass-card rounded-2xl p-6 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-amber-300 flex items-center gap-2">
+                            <i data-lucide="message-square" class="w-4 h-4"></i> 단톡방 공유용 요약 텍스트
+                        </h3>
+                        <button onclick="app.copyShareText()" class="text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 px-3 py-1 rounded-lg font-medium transition flex items-center gap-1">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i> 복사하기
+                        </button>
+                    </div>
+                    <textarea id="share-text-box" readonly class="w-full h-32 bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 font-mono resize-none focus:outline-none"></textarea>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- App Logic JS -->
+    <script>
+        class MeetingApp {
+            constructor() {
+                this.polls = JSON.parse(localStorage.getItem('meetwhen_polls')) || [];
+                this.currentPollId = null;
+                this.selectedDates = new Set(); // YYYY-MM-DD
+                this.currentMonth = new Date();
+                this.currentVoteState = {}; // { 'YYYY-MM-DD': 'available' | 'maybe' | 'unavailable' }
+                
+                this.init();
+            }
+
+            init() {
+                this.renderCalendar();
+                this.renderExistingPolls();
+                lucide.createIcons();
+            }
+
+            // --- NAVIGATION ---
+            showHome() {
+                document.getElementById('view-create').classList.remove('hidden');
+                document.getElementById('view-poll').classList.add('hidden');
+                this.renderExistingPolls();
+            }
+
+            showPoll(pollId) {
+                this.currentPollId = pollId;
+                const poll = this.getPoll();
+                if (!poll) return;
+
+                document.getElementById('view-create').classList.add('hidden');
+                document.getElementById('view-poll').classList.remove('hidden');
+
+                // Fill Header
+                document.getElementById('poll-detail-title').innerText = poll.title;
+                document.getElementById('poll-detail-desc').innerText = poll.desc || '상세 메모가 없습니다.';
+                document.getElementById('poll-detail-voter-count').innerText = `${poll.voters.length}명`;
+                document.getElementById('poll-detail-date-count').innerText = `${poll.dates.length}개`;
+
+                // Populate Voter Selector
+                const voterSelect = document.getElementById('voter-selector');
+                voterSelect.innerHTML = `<option value="">+ 새 참가자로 투표하기</option>` + 
+                    poll.voters.map(v => `<option value="${v.name}">${v.name}님 (기존 투표 수정)</option>`).join('');
+
+                document.getElementById('voter-name').value = '';
+                this.currentVoteState = {};
+                poll.dates.forEach(d => this.currentVoteState[d] = 'available');
+
+                this.renderVoteForm();
+                this.renderResults();
+                this.switchTab('vote');
+                lucide.createIcons();
+            }
+
+            switchTab(tab) {
+                const voteBtn = document.getElementById('tab-btn-vote');
+                const resultBtn = document.getElementById('tab-btn-result');
+                const voteContent = document.getElementById('tab-content-vote');
+                const resultContent = document.getElementById('tab-content-result');
+
+                if (tab === 'vote') {
+                    voteBtn.className = "flex-1 py-2.5 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2 bg-indigo-600 text-white shadow";
+                    resultBtn.className = "flex-1 py-2.5 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2 text-slate-400 hover:text-white";
+                    voteContent.classList.remove('hidden');
+                    resultContent.classList.add('hidden');
+                } else {
+                    resultBtn.className = "flex-1 py-2.5 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2 bg-indigo-600 text-white shadow";
+                    voteBtn.className = "flex-1 py-2.5 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2 text-slate-400 hover:text-white";
+                    resultContent.classList.remove('hidden');
+                    voteContent.classList.add('hidden');
+                    this.renderResults();
+                }
+                lucide.createIcons();
+            }
+
+            // --- CALENDAR LOGIC FOR CREATION ---
+            renderCalendar() {
+                const year = this.currentMonth.getFullYear();
+                const month = this.currentMonth.getMonth();
+
+                document.getElementById('calendar-month-year').innerText = `${year}년 ${month + 1}월`;
+
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                const container = document.getElementById('calendar-days');
+                container.innerHTML = '';
+
+                // Blank padding
+                for (let i = 0; i < firstDay; i++) {
+                    container.innerHTML += `<div></div>`;
+                }
+
+                // Days
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isSelected = this.selectedDates.has(dateStr);
+
+                    const dateObj = new Date(year, month, day);
+                    const dayOfWeek = dateObj.getDay();
+                    let textColor = 'text-slate-200';
+                    if (dayOfWeek === 0) textColor = 'text-rose-400';
+                    if (dayOfWeek === 6) textColor = 'text-indigo-400';
+
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = `h-11 rounded-xl font-semibold text-sm flex flex-col items-center justify-center transition ${textColor} ${isSelected ? 'calendar-day-selected' : 'bg-slate-800/60 hover:bg-slate-700/80'}`;
+                    btn.innerHTML = `<span>${day}</span>`;
+                    btn.onclick = () => this.toggleDateSelection(dateStr);
+
+                    container.appendChild(btn);
+                }
+            }
+
+            prevMonth() {
+                this.currentMonth.setMonth(this.currentMonth.getMonth() - 1);
+                this.renderCalendar();
+            }
+
+            nextMonth() {
+                this.currentMonth.setMonth(this.currentMonth.getMonth() + 1);
+                this.renderCalendar();
+            }
+
+            toggleDateSelection(dateStr) {
+                if (this.selectedDates.has(dateStr)) {
+                    this.selectedDates.delete(dateStr);
+                } else {
+                    this.selectedDates.add(dateStr);
+                }
+                document.getElementById('selected-dates-count').innerText = this.selectedDates.size;
+                this.renderCalendar();
+            }
+
+            // --- CREATE POLL ---
+            createPoll() {
+                const title = document.getElementById('poll-title').value.trim();
+                const desc = document.getElementById('poll-desc').value.trim();
+
+                if (!title) {
+                    alert('약속 이름을 입력해주세요!');
+                    return;
+                }
+                if (this.selectedDates.size === 0) {
+                    alert('최소 1개 이상의 후보 날짜를 선택해주세요!');
+                    return;
+                }
+
+                const sortedDates = Array.from(this.selectedDates).sort();
+
+                const newPoll = {
+                    id: 'poll_' + Date.now(),
+                    title: title,
+                    desc: desc,
+                    createdAt: new Date().toLocaleDateString(),
+                    dates: sortedDates,
+                    voters: []
+                };
+
+                this.polls.unshift(newPoll);
+                this.saveStorage();
+                
+                // Clear input
+                document.getElementById('poll-title').value = '';
+                document.getElementById('poll-desc').value = '';
+                this.selectedDates.clear();
+                document.getElementById('selected-dates-count').innerText = '0';
+                this.renderCalendar();
+
+                this.showPoll(newPoll.id);
+            }
+
+            getPoll() {
+                return this.polls.find(p => p.id === this.currentPollId);
+            }
+
+            saveStorage() {
+                localStorage.setItem('meetwhen_polls', JSON.stringify(this.polls));
+            }
+
+            renderExistingPolls() {
+                const container = document.getElementById('existing-polls-list');
+                const wrapper = document.getElementById('existing-polls-container');
+
+                if (this.polls.length === 0) {
+                    wrapper.classList.add('hidden');
+                    return;
+                }
+
+                wrapper.classList.remove('hidden');
+                container.innerHTML = this.polls.map(poll => `
+                    <div onclick="app.showPoll('${poll.id}')" class="glass-card-sm p-4 rounded-xl hover:bg-slate-800/80 cursor-pointer border border-slate-700/50 transition flex items-center justify-between">
+                        <div>
+                            <h4 class="font-bold text-white text-base">${poll.title}</h4>
+                            <p class="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                                <span><i data-lucide="calendar" class="w-3 h-3 inline"></i> ${poll.dates.length}개 후보 날짜</span>
+                                <span>•</span>
+                                <span><i data-lucide="users" class="w-3 h-3 inline"></i> ${poll.voters.length}명 참여</span>
+                            </p>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-5 h-5 text-indigo-400"></i>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            }
+
+            // --- VOTING FORM LOGIC ---
+            onVoterSelectChange() {
+                const voterName = document.getElementById('voter-selector').value;
+                const poll = this.getPoll();
+                if (!poll) return;
+
+                if (voterName) {
+                    document.getElementById('voter-name').value = voterName;
+                    const existingVoter = poll.voters.find(v => v.name === voterName);
+                    if (existingVoter) {
+                        this.currentVoteState = { ...existingVoter.votes };
+                    }
+                } else {
+                    document.getElementById('voter-name').value = '';
+                    this.currentVoteState = {};
+                    poll.dates.forEach(d => this.currentVoteState[d] = 'available');
+                }
+                this.renderVoteForm();
+            }
+
+            setVoteStatus(dateStr, status) {
+                this.currentVoteState[dateStr] = status;
+                this.renderVoteForm();
+            }
+
+            renderVoteForm() {
+                const poll = this.getPoll();
+                if (!poll) return;
+
+                const container = document.getElementById('vote-dates-list');
+                container.innerHTML = poll.dates.map(dateStr => {
+                    const status = this.currentVoteState[dateStr] || 'available';
+                    const dateObj = new Date(dateStr);
+                    const days = ['일', '월', '화', '수', '목', '금', '토'];
+                    const dayName = days[dateObj.getDay()];
+                    
+                    let dayColor = 'text-white';
+                    if (dateObj.getDay() === 0) dayColor = 'text-rose-400';
+                    if (dateObj.getDay() === 6) dayColor = 'text-indigo-400';
+
+                    return `
+                        <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex flex-col justify-between gap-3">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-base ${dayColor}">${dateStr} (${dayName})</span>
+                                <span class="text-xs px-2 py-0.5 rounded ${status === 'available' ? 'bg-emerald-500/20 text-emerald-300' : status === 'maybe' ? 'bg-amber-500/20 text-amber-300' : 'bg-rose-500/20 text-rose-300'}">
+                                    ${status === 'available' ? '🟢 가능' : status === 'maybe' ? '🟡 세모' : '🔴 불가'}
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1.5">
+                                <button type="button" onclick="app.setVoteStatus('${dateStr}', 'available')" 
+                                    class="py-1.5 rounded-lg text-xs font-semibold transition ${status === 'available' ? 'status-btn-available' : 'bg-slate-800 text-slate-400 hover:text-white'}">
+                                    가능
+                                </button>
+                                <button type="button" onclick="app.setVoteStatus('${dateStr}', 'maybe')" 
+                                    class="py-1.5 rounded-lg text-xs font-semibold transition ${status === 'maybe' ? 'status-btn-maybe' : 'bg-slate-800 text-slate-400 hover:text-white'}">
+                                    세모
+                                </button>
+                                <button type="button" onclick="app.setVoteStatus('${dateStr}', 'unavailable')" 
+                                    class="py-1.5 rounded-lg text-xs font-semibold transition ${status === 'unavailable' ? 'status-btn-unavailable' : 'bg-slate-800 text-slate-400 hover:text-white'}">
+                                    불가
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            submitVote() {
+                const name = document.getElementById('voter-name').value.trim();
+                if (!name) {
+                    alert('이름을 입력해주세요!');
+                    return;
+                }
+
+                const poll = this.getPoll();
+                if (!poll) return;
+
+                const existingIndex = poll.voters.findIndex(v => v.name === name);
+                const voterData = {
+                    name: name,
+                    votes: { ...this.currentVoteState }
+                };
+
+                if (existingIndex >= 0) {
+                    poll.voters[existingIndex] = voterData;
+                } else {
+                    poll.voters.push(voterData);
+                }
+
+                this.saveStorage();
+                alert(`${name}님의 투표가 정상 저장되었습니다! 🎉`);
+
+                this.showPoll(poll.id);
+                this.switchTab('result');
+
+                // Trigger Confetti
+                confetti({
+                    particleCount: 70,
+                    spread: 60,
+                    origin: { y: 0.6 }
+                });
+            }
+
+            // --- RESULTS & BEST DATE CALCULATION ---
+            renderResults() {
+                const poll = this.getPoll();
+                if (!poll) return;
+
+                // 1. Calculate Scores for Each Date
+                // Available = 2pt, Maybe = 1pt, Unavailable = 0pt
+                const dateStats = poll.dates.map(dateStr => {
+                    let avail = 0, maybe = 0, unavail = 0;
+                    let availNames = [], maybeNames = [], unavailNames = [];
+
+                    poll.voters.forEach(voter => {
+                        const status = voter.votes[dateStr] || 'available';
+                        if (status === 'available') { avail++; availNames.push(voter.name); }
+                        else if (status === 'maybe') { maybe++; maybeNames.push(voter.name); }
+                        else { unavail++; unavailNames.push(voter.name); }
+                    });
+
+                    const score = (avail * 2) + (maybe * 1);
+                    return {
+                        dateStr,
+                        avail, maybe, unavail,
+                        availNames, maybeNames, unavailNames,
+                        score
+                    };
+                });
+
+                // Sort stats to find top date
+                const sortedStats = [...dateStats].sort((a, b) => b.score - a.score || b.avail - a.avail);
+                const topWinner = sortedStats[0];
+
+                // 2. Render Winner Banner
+                const winnerBanner = document.getElementById('best-date-banner');
+                if (!topWinner || poll.voters.length === 0) {
+                    winnerBanner.innerHTML = `
+                        <div class="text-center py-4">
+                            <i data-lucide="info" class="w-8 h-8 text-indigo-400 mx-auto mb-2"></i>
+                            <h4 class="font-bold text-white text-base">아직 투표한 참여자가 없습니다</h4>
+                            <p class="text-xs text-slate-400 mt-1">[내 일정 투표하기] 탭에서 첫 번째 투표를 등록해 보세요!</p>
+                        </div>
+                    `;
+                } else {
+                    const dateObj = new Date(topWinner.dateStr);
+                    const days = ['일', '월', '화', '수', '목', '금', '토'];
+                    const dayName = days[dateObj.getDay()];
+
+                    winnerBanner.innerHTML = `
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
+                            <div class="flex items-center gap-4">
+                                <div class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400 shadow-lg shadow-amber-500/20">
+                                    <i data-lucide="crown" class="w-8 h-8"></i>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> 가장 최적의 약속 추천 날짜 (1위)
+                                    </span>
+                                    <h3 class="text-2xl font-extrabold text-white mt-0.5">${topWinner.dateStr} (${dayName})</h3>
+                                    <p class="text-xs text-slate-300 mt-1">
+                                        총 <strong class="text-emerald-400">${topWinner.avail}명</strong> 참석 가능 ${topWinner.maybe > 0 ? `(조율 필요 ${topWinner.maybe}명)` : ''}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="bg-slate-900/80 px-4 py-3 rounded-xl border border-slate-800 text-right min-w-[160px]">
+                                <span class="block text-xs text-slate-400">참석자 명단</span>
+                                <span class="text-xs text-emerald-300 font-medium">
+                                    ${topWinner.availNames.length > 0 ? topWinner.availNames.join(', ') : '없음'}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // 3. Render Matrix Table
+                const table = document.getElementById('matrix-table');
+                let tableHtml = `
+                    <thead>
+                        <tr class="border-b border-slate-800 text-xs text-slate-400 bg-slate-900/90">
+                            <th class="p-3 sticky left-0 bg-slate-900 z-10 font-semibold">후보 날짜</th>
+                            <th class="p-3 font-semibold text-center">가능 수</th>
+                            ${poll.voters.map(v => `<th class="p-3 font-semibold text-center min-w-[70px]">${v.name}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                `;
+
+                dateStats.forEach(stat => {
+                    const isTop = topWinner && topWinner.dateStr === stat.dateStr && poll.voters.length > 0;
+                    const dateObj = new Date(stat.dateStr);
+                    const days = ['일', '월', '화', '수', '목', '금', '토'];
+                    const dayName = days[dateObj.getDay()];
+
+                    tableHtml += `
+                        <tr class="${isTop ? 'bg-amber-950/20' : 'hover:bg-slate-800/40'}">
+                            <td class="p-3 sticky left-0 bg-slate-900 z-10 font-bold text-slate-200">
+                                ${isTop ? '<span class="text-amber-400">👑 </span>' : ''}${stat.dateStr} (${dayName})
+                            </td>
+                            <td class="p-3 text-center">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-bold ${stat.avail > 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-500'}">
+                                    ${stat.avail}명
+                                </span>
+                            </td>
+                            ${poll.voters.map(v => {
+                                const st = v.votes[stat.dateStr] || 'available';
+                                let icon = '🟢';
+                                if (st === 'maybe') icon = '🟡';
+                                if (st === 'unavailable') icon = '🔴';
+                                return `<td class="p-3 text-center text-base">${icon}</td>`;
+                            }).join('')}
+                        </tr>
+                    `;
+                });
+
+                tableHtml += `</tbody>`;
+                table.innerHTML = tableHtml;
+
+                // 4. Update KakaoTalk Share Text Box
+                this.updateShareText(poll, sortedStats);
+                lucide.createIcons();
+            }
+
+            updateShareText(poll, sortedStats) {
+                if (!poll) return;
+
+                let txt = `📢 [${poll.title}] 약속 날짜 투표 현황\n`;
+                if (poll.desc) txt += `📌 ${poll.desc}\n`;
+                txt += `👥 총 참여자 (${poll.voters.length}명): ${poll.voters.map(v => v.name).join(', ')}\n\n`;
+
+                txt += `🏆 [최적 추천 날짜 TOP 3]\n`;
+                sortedStats.slice(0, 3).forEach((stat, idx) => {
+                    const dateObj = new Date(stat.dateStr);
+                    const days = ['일', '월', '화', '수', '목', '금', '토'];
+                    const dayName = days[dateObj.getDay()];
+                    txt += `${idx + 1}위: ${stat.dateStr} (${dayName}) - ${stat.avail}명 가능 (참석: ${stat.availNames.join(', ') || '없음'})\n`;
+                });
+
+                txt += `\n✨ 모여봐요 약속의 숲에서 확인 완료!`;
+
+                document.getElementById('share-text-box').value = txt;
+            }
+
+            copyShareText() {
+                const box = document.getElementById('share-text-box');
+                box.select();
+                navigator.clipboard.writeText(box.value);
+                alert('단톡방 공유용 요약 텍스트가 클립보드에 복사되었습니다! 카톡에 붙여넣기(Ctrl+V) 하세요.');
+            }
+
+            // --- LOAD SAMPLE DATA FOR DEMO ---
+            loadSampleData() {
+                const samplePoll = {
+                    id: 'poll_sample_' + Date.now(),
+                    title: '8월 친구들 여름 강원도 여행 🌊',
+                    desc: '숙소 예약 건으로 빠른 날짜 확정 필요!',
+                    createdAt: new Date().toLocaleDateString(),
+                    dates: ['2026-08-28', '2026-08-29', '2026-09-04', '2026-09-05'],
+                    voters: [
+                        { name: '철수', votes: { '2026-08-28': 'available', '2026-08-29': 'available', '2026-09-04': 'maybe', '2026-09-05': 'unavailable' } },
+                        { name: '영희', votes: { '2026-08-28': 'available', '2026-08-29': 'available', '2026-09-04': 'available', '2026-09-05': 'available' } },
+                        { name: '민수', votes: { '2026-08-28': 'available', '2026-08-29': 'available', '2026-09-04': 'unavailable', '2026-09-05': 'unavailable' } },
+                        { name: '지은', votes: { '2026-08-28': 'maybe', '2026-08-29': 'available', '2026-09-04': 'available', '2026-09-05': 'maybe' } }
+                    ]
+                };
+
+                this.polls.unshift(samplePoll);
+                this.saveStorage();
+                this.showPoll(samplePoll.id);
+                this.switchTab('result');
+
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        // Initialize App
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new MeetingApp();
+        });
+    </script>
+</body>
+</html>
